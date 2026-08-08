@@ -48,7 +48,7 @@ Yeh sabse zaroori step hai — isi mein aapka lead data save hoga.
 2. **Create Database** → **Marketplace Database Providers** mein se **Upstash — Redis** choose karo (Free tier available)
 3. Region select karo (koi bhi India ke paas wala, e.g. Mumbai/Singapore) → **Create**
 4. Jab bane, us database ko apne `hp-sales-funnel` project se **Connect** kar do
-   (yeh automatically `KV_REST_API_URL` aur `KV_REST_API_TOKEN` environment variables project mein daal dega)
+   (yeh automatically `REDIS_URL` ya `KV_REST_API_URL` / `KV_REST_API_TOKEN` environment variables project mein daal dega — app dono ko support karti hai)
 
 ---
 
