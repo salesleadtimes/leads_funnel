@@ -1,90 +1,104 @@
-# HP Print & Scan — Sales Funnel (Vercel Deployment Guide)
+# HP Sales Funnel — Government & Non-Government Tracker
 
-Yeh ek full-stack Next.js app hai — Government + Non-Government leads track karne ke liye,
-funnel dashboard aur Daily/Weekly/Monthly/Quarterly/Yearly review ke saath. Data central
-database mein save hota hai, isliye team ke sab log same data dekh sakte hain (jaisa Excel
-shared drive par hota hai, waisa hi, live web app ke roop mein).
-
-100% FREE tier par deploy hota hai — koi paisa nahi lagega for normal usage
-(free limits: Vercel Hobby plan + Upstash Redis free tier = 10,000 commands/day, kaafi hai).
+Next.js web application for tracking HP printer, scanner, plotter, and cartridge sales leads. Built for India public sector (GeM portal, CPPP tenders) and private corporate sales.
 
 ---
 
-## Cheezein jo chahiye (sab free)
+## Technical Stack & Modular Architecture
 
-1. GitHub account — https://github.com (agar nahi hai to bana lo, 2 min)
-2. Vercel account — https://vercel.com (GitHub se hi sign up kar sakte ho, "Continue with GitHub")
-
-Koi coding / terminal command chalane ki zaroorat nahi hai — sab kuch website par click-through hota hai.
-
----
-
-## Step 1 — Code ko GitHub par daalo
-
-1. github.com par login karo → top-right "+" → **New repository**
-2. Naam do: `hp-sales-funnel` → **Create repository**
-3. Us naye (khaali) repo ke page par "uploading an existing file" link dikhega — us par click karo
-4. Is poore folder (`hp-sales-funnel-app`) ke andar ke SAARE files aur folders drag-and-drop karke upload kar do
-   (yaani `app/`, `lib/`, `package.json`, `middleware.js`, `next.config.js`, `.gitignore`, `README.md` — sab kuch)
-5. Neeche "Commit changes" button dabao
+- **Frontend**: Next.js (App Router), React, Modular CSS & Components (`components/`, `hooks/useSalesData.js`).
+- **Database**: PostgreSQL (Local Dev) / Supabase (Production) via `@supabase/supabase-js` and `postgres`.
+- **Database Schema**: SQL script provided in `lib/db/schema.sql`.
 
 ---
 
-## Step 2 — Vercel par import karo
+## Project Structure
 
-1. vercel.com par login karo → **Add New → Project**
-2. Apni GitHub repo `hp-sales-funnel` dikhegi → **Import**
-3. Framework apne aap "Next.js" detect ho jayega — kuch change mat karo
-4. Abhi **Deploy** mat dabao — pehle neeche Step 3 karo (varna storage error aayega)
-   — Ya deploy kar bhi do, error normal hai, Step 3 ke baad "Redeploy" kar dena
-
----
-
-## Step 3 — Free Database (Storage) jodo
-
-Yeh sabse zaroori step hai — isi mein aapka lead data save hoga.
-
-1. Vercel Dashboard mein apne project ke andar jao → top par **Storage** tab
-2. **Create Database** → **Marketplace Database Providers** mein se **Upstash — Redis** choose karo (Free tier available)
-3. Region select karo (koi bhi India ke paas wala, e.g. Mumbai/Singapore) → **Create**
-4. Jab bane, us database ko apne `hp-sales-funnel` project se **Connect** kar do
-   (yeh automatically `REDIS_URL` ya `KV_REST_API_URL` / `KV_REST_API_TOKEN` environment variables project mein daal dega — app dono ko support karti hai)
-
----
-
-## Step 4 — Login password set karo
-
-Data business-sensitive hai (tender info), isliye app ke aage ek simple password laga hai.
-
-1. Project → **Settings → Environment Variables**
-2. Add karo:
-   - `APP_USER` = `admin` (ya jo bhi username chaho)
-   - `APP_PASSWORD` = koi strong password
-3. **Save**
-
----
-
-## Step 5 — Deploy / Redeploy
-
-1. Project → **Deployments** tab → latest deployment ke "..." menu → **Redeploy**
-   (Storage aur password variables Step 3/4 mein add kiye the, isliye ek fresh deploy chahiye)
-2. 1-2 minute mein build ho jayega → aapko ek live URL milega jaisे:
-   `https://hp-sales-funnel-yourname.vercel.app`
-3. Us URL ko kholo → browser username/password maangega → wahi daalo jo Step 4 mein set kiya tha
-4. App ready hai — team ke sabhi log yehi ek URL use kar sakte hain, data automatically sabke liye sync rahega
+```
+hp-sales-funnel-app/
+├── app/
+│   ├── api/
+│   │   ├── leads/          # GET / POST leads
+│   │   │   └── [id]/       # PUT / DELETE lead
+│   │   ├── targets/        # GET / PUT targets
+│   │   └── data/           # GET / PUT full state
+│   ├── page.js             # Main page component
+│   └── layout.js
+├── components/
+│   ├── Header.jsx          # Topbar & KPI summary badge
+│   ├── Navigation.jsx      # Tab navigator
+│   ├── DashboardTab.jsx    # Funnel view, KPIs, sector breakdown
+│   ├── NewLeadTab.jsx      # Lead entry form
+│   ├── LeadsListTab.jsx    # Filterable leads table & export/import
+│   ├── ReviewsTab.jsx      # Target vs achievement reviews
+│   └── LeadModal.jsx       # Edit & delete lead dialog
+├── hooks/
+│   └── useSalesData.js     # State hook & persistence engine
+├── lib/
+│   ├── db/
+│   │   ├── client.js       # Supabase / PostgreSQL unified connection
+│   │   └── schema.sql      # Database tables schema
+│   ├── services/
+│   │   ├── leadsService.js # Leads DB CRUD operations
+│   │   └── targetsService.js # Targets DB operations
+│   └── seed.js             # Default seed data
+```
 
 ---
 
-## Aage kya
+## Database Setup
 
-- Apna khud ka domain (e.g. `sales.timesitsolutions.com`) jodne ke liye: Project → **Settings → Domains**
-- Zyada users / heavy usage ho to Vercel aapko apne aap bata dega agar free limit cross ho raha hai
-- Data ka backup: "All Leads" tab mein **Export Data (JSON)** button se kabhi bhi poora data download kar sakte ho
+Run the SQL script in `lib/db/schema.sql` on your PostgreSQL or Supabase SQL Editor:
+
+```sql
+CREATE TABLE IF NOT EXISTS leads (
+  id VARCHAR(64) PRIMARY KEY,
+  org_name TEXT NOT NULL,
+  sector TEXT NOT NULL,
+  dept_industry TEXT NOT NULL DEFAULT '',
+  contact_person TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  product_category TEXT NOT NULL,
+  model TEXT NOT NULL DEFAULT '',
+  qty INTEGER NOT NULL DEFAULT 1,
+  est_value NUMERIC NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT '',
+  tender_ref TEXT NOT NULL DEFAULT '',
+  stage TEXT NOT NULL,
+  expected_close DATE,
+  next_follow_up DATE,
+  sales_person TEXT NOT NULL DEFAULT '',
+  remarks TEXT NOT NULL DEFAULT '',
+  created_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  closed_date DATE
+);
+
+CREATE TABLE IF NOT EXISTS targets (
+  id VARCHAR(32) PRIMARY KEY DEFAULT 'default',
+  daily NUMERIC NOT NULL DEFAULT 15000,
+  weekly NUMERIC NOT NULL DEFAULT 100000,
+  monthly NUMERIC NOT NULL DEFAULT 400000,
+  quarterly NUMERIC NOT NULL DEFAULT 1200000,
+  yearly NUMERIC NOT NULL DEFAULT 5000000
+);
+```
 
 ---
 
-## Agar kuch atka to
+## Environment Variables
 
-- "Storage not connected" error dikhe → Step 3 dobara check karo, phir Redeploy karo
-- 401 / password na chale → Step 4 ke variables sahi se save hue hain ya nahi check karo, phir Redeploy
-- Local computer par test karna ho (optional, developer ke liye): `npm install` phir `npm run dev`
+Set in `.env.local` or Vercel Settings:
+
+```env
+# Basic Auth
+APP_USER=admin
+APP_PASSWORD=changeme
+
+# Production (Supabase)
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxx
+
+# Local Dev (PostgreSQL)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/hp_sales_funnel
+```
