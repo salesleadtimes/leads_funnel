@@ -1,22 +1,47 @@
 import { NextResponse } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
-// Simple HTTP Basic Auth so tender/lead data isn't publicly open on the internet.
-// Set APP_USER and APP_PASSWORD in Vercel -> Project Settings -> Environment Variables.
-export function middleware(req) {
-  const user = process.env.APP_USER || 'admin';
-  const pass = process.env.APP_PASSWORD || 'changeme';
+const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-  const authHeader = req.headers.get('authorization');
-  const expected = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
+export async function middleware(request) {
+  const { pathname } = request.nextUrl;
 
-  if (authHeader === expected) {
+  // Allow the login page and Next.js internals to pass through
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon')
+  ) {
     return NextResponse.next();
   }
 
-  return new NextResponse('Authentication required', {
-    status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="HP Sales Funnel"' }
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnon, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          request.cookies.set(name, value);
+          response.cookies.set(name, value, options);
+        });
+      }
+    }
   });
+
+  // Refresh session (keeps cookie fresh)
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return response;
 }
 
 export const config = {

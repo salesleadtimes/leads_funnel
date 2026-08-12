@@ -1,38 +1,94 @@
 'use client';
 
+import { useAuth } from '../lib/context/AuthContext';
+
 export function fmtINR(n) {
   n = Number(n) || 0;
-  return "₹" + n.toLocaleString('en-IN');
+  return '₹' + n.toLocaleString('en-IN');
 }
 
-export default function Header({ pipelineVal, saving, onRefresh }) {
+export default function Header({ pipelineVal, saving, onRefresh, onOpenInviteModal }) {
+  const { profile, isOwner, assignedSegments, activeSegment, setActiveSegment, signOut } = useAuth();
+
   return (
     <header className="topbar">
-      <svg className="regmark" viewBox="0 0 30 30">
-        <circle cx="15" cy="15" r="13" fill="none" stroke="#fff" strokeOpacity=".25" strokeWidth="1"/>
-        <circle cx="12" cy="13" r="7" fill="#00AEEF" opacity=".85"/>
-        <circle cx="19" cy="13" r="7" fill="#EC008C" opacity=".85"/>
-        <circle cx="15.5" cy="19" r="7" fill="#FFC300" opacity=".85"/>
-        <circle cx="15" cy="15" r="1.6" fill="#14181F"/>
-      </svg>
+      <img src="/Logo-2.png" alt="App Logo" className="regmark" width="30" height="30" style={{ objectFit: 'contain' }} />
+
       <div className="brandtext">
-        <h1>HP Print &amp; Scan — Sales Funnel</h1>
-        <span className="sub">GOVERNMENT + NON-GOVERNMENT LEAD TRACKER</span>
+        <h1>Lead & Bid Manager</h1>
+        <span className="sub">GeM · Government · Corporate</span>
       </div>
-      <div className="spacer"></div>
+
+      <div className="spacer" />
+
+      {/* Segment Switcher — visible when user has multiple segments */}
+      {assignedSegments.length > 1 && (
+        <select
+          className="segment-switcher"
+          value={activeSegment?.id || ''}
+          onChange={e => {
+            const seg = assignedSegments.find(s => s.id === e.target.value);
+            if (seg) setActiveSegment(seg);
+          }}
+        >
+          {assignedSegments.map(s => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      )}
+
+      {/* Active segment pill when only one */}
+      {assignedSegments.length === 1 && activeSegment && (
+        <span className="segment-pill">{activeSegment.name}</span>
+      )}
+
       {saving && <span className="saving">Saving…</span>}
+
       {onRefresh && (
         <button
           type="button"
           onClick={onRefresh}
           className="btn btn-ghost"
           style={{ padding: '6px 12px', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          title="Refresh live data from Supabase"
+          title="Refresh live data"
         >
-          🔄 Refresh DB
+          🔄 Refresh
         </button>
       )}
+
+      {/* Owner-only Invite User Action Button */}
+      {isOwner && onOpenInviteModal && (
+        <button
+          type="button"
+          onClick={onOpenInviteModal}
+          className="btn btn-secondary"
+          style={{
+            padding: '6px 12px',
+            fontSize: 13,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            borderColor: 'var(--accent-blue, #2563eb)',
+            color: 'var(--accent-blue, #2563eb)'
+          }}
+          title="Invite new team member"
+        >
+          ✉️ Invite User
+        </button>
+      )}
+
       <span className="stat-pill">Pipeline: {fmtINR(pipelineVal)}</span>
+
+      {/* User info + Role badge */}
+      <div className="user-menu">
+        <span className={`role-badge ${isOwner ? 'role-owner' : 'role-member'}`}>
+          {isOwner ? '👑 Owner' : '👤 Member'}
+        </span>
+        <span className="user-name">{profile?.full_name || profile?.email || ''}</span>
+        <button className="btn btn-ghost signout-btn" onClick={signOut} title="Sign out">
+          Sign out
+        </button>
+      </div>
     </header>
   );
 }

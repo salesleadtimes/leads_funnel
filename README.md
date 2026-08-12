@@ -97,7 +97,7 @@ APP_PASSWORD=changeme
 
 # Production (Supabase)
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=xxxx
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=xxxx
 
 # Local Dev (PostgreSQL)
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/hp_sales_funnel

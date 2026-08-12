@@ -1,22 +1,30 @@
 'use client';
 
+import { useAuth } from '../lib/context/AuthContext';
+
 export default function Navigation({ tab, setTab }) {
+  const { isOwner } = useAuth();
+
   const tabs = [
-    ['dashboard', 'Dashboard & Funnel'],
-    ['newlead', '+ New Lead'],
-    ['leads', 'All Leads'],
-    ['reviews', 'Reviews']
+    { id: 'dashboard', label: '📊 Dashboard' },
+    { id: 'newlead',   label: '＋ New Lead'  },
+    { id: 'leads',     label: '📋 All Leads' },
+    { id: 'reviews',   label: '🎯 Reviews'   },
+    ...(isOwner ? [{ id: 'admin', label: '⚙️ Admin' }] : []),
   ];
 
   return (
-    <nav className="tabs">
-      {tabs.map(([key, label]) => (
+    <nav className="nav-tabs" role="tablist">
+      {tabs.map(t => (
         <button
-          key={key}
-          className={tab === key ? 'active' : ''}
-          onClick={() => setTab(key)}
+          key={t.id}
+          id={`nav-${t.id}`}
+          role="tab"
+          aria-selected={tab === t.id}
+          className={`nav-tab ${tab === t.id ? 'active' : ''}`}
+          onClick={() => setTab(t.id)}
         >
-          {label}
+          {t.label}
         </button>
       ))}
     </nav>

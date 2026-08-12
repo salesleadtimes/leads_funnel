@@ -231,3 +231,61 @@ dialog .dfield input, dialog .dfield select, dialog .dfield textarea{padding:9px
   main{padding:0;max-width:100%;}
   .card{border:1px solid #ccc;}
 }
+
+/* =========================================================
+   LOGIN PAGE
+   ========================================================= */
+.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--ink);}
+.login-card{background:#1d2330;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:36px 40px;width:100%;max-width:400px;}
+.login-logo{display:flex;align-items:center;gap:14px;margin-bottom:28px;}
+.login-logo h1{font-family:var(--font-display);font-size:18px;color:#fff;margin:0;}
+.login-logo span{font-size:11px;color:#7888a0;font-family:var(--font-mono);}
+.login-form{display:flex;flex-direction:column;gap:14px;}
+.login-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:#9aa5b4;}
+.login-form input{padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#fff;font-size:14px;font-family:var(--font-body);}
+.login-form input:focus{outline:none;border-color:var(--hp-blue);box-shadow:0 0 0 2px rgba(0,145,213,.25);}
+.login-error{background:rgba(192,57,43,.18);border:1px solid rgba(192,57,43,.35);border-radius:8px;padding:10px 12px;font-size:13px;color:#e74c3c;}
+.login-footer{font-size:11px;color:#5a6478;text-align:center;margin-top:16px;}
+
+/* =========================================================
+   HEADER ADDITIONS
+   ========================================================= */
+.role-badge{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;letter-spacing:.04em;}
+.role-owner{background:rgba(255,195,0,.18);color:#FFC300;border:1px solid rgba(255,195,0,.3);}
+.role-member{background:rgba(0,174,239,.12);color:#00AEEF;border:1px solid rgba(0,174,239,.25);}
+.user-menu{display:flex;align-items:center;gap:10px;}
+.user-name{font-size:12px;color:#AEB8C4;font-family:var(--font-mono);}
+.signout-btn{font-size:11px !important;padding:4px 10px !important;}
+.segment-switcher{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:12px;padding:5px 10px;cursor:pointer;}
+.segment-pill{font-size:11.5px;background:rgba(0,145,213,.18);border:1px solid rgba(0,145,213,.3);border-radius:20px;padding:4px 10px;color:#5bc8f5;font-family:var(--font-mono);}
+
+/* nav-tabs alias (Navigation uses nav.nav-tabs) */
+nav.nav-tabs{display:flex;gap:4px;padding:10px 22px 0 22px;background:var(--ink);border-top:1px solid rgba(255,255,255,.06);overflow-x:auto;}
+nav.nav-tabs button.nav-tab{font-family:var(--font-body);font-weight:500;font-size:13px;color:#AEB8C4;background:transparent;border:none;padding:10px 16px;border-radius:8px 8px 0 0;cursor:pointer;white-space:nowrap;}
+nav.nav-tabs button.nav-tab.active{background:var(--paper);color:var(--ink);font-weight:600;}
+nav.nav-tabs button.nav-tab:hover:not(.active){color:#fff;}
+
+/* =========================================================
+   FORM EXTRAS
+   ========================================================= */
+.input-readonly{background:rgba(0,0,0,.04);color:var(--ink-soft);cursor:default;}
+.checkbox-label{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;}
+.checkbox-label input[type=checkbox]{width:16px;height:16px;}
+.loading-inline{font-size:12px;color:var(--ink-soft);font-family:var(--font-mono);padding:8px 0;}
+
+/* =========================================================
+   STAGE HISTORY TIMELINE
+   ========================================================= */
+.history-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-soft);font-size:12.5px;}
+.history-row:last-child{border-bottom:none;}
+.history-time{color:var(--ink-soft);font-family:var(--font-mono);font-size:11px;min-width:90px;}
+.history-arrow{flex:1;}
+.history-by{color:var(--ink-soft);font-size:11.5px;}
+.history-note{font-size:11px;color:var(--hp-blue-deep);background:rgba(0,145,213,.07);border-radius:4px;padding:2px 6px;}
+
+/* Won / Lost stage tags */
+.tag.stage.won{background:rgba(30,138,95,.15);color:#1E8A5F;}
+.tag.stage.lost{background:rgba(192,57,43,.15);color:#c0392b;}
+
+/* accent blue for section headers */
+.accent-blue { color: var(--hp-blue); }
