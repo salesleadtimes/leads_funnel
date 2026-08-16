@@ -13,13 +13,16 @@ export default function LoginPage() {
   const [loading, setLoading]     = useState(false);
 
   useEffect(() => {
-    // Read error or message from query string if redirected
+    // Read error or message from query string or hash fragment if redirected
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      const err = params.get('error');
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      
+      const err = params.get('error') || hashParams.get('error_description') || hashParams.get('error');
       const msg = params.get('message');
-      if (err) setError(err);
-      if (msg) setMessage(msg);
+      
+      if (err) setError(decodeURIComponent(err));
+      if (msg) setMessage(decodeURIComponent(msg));
     }
   }, []);
 

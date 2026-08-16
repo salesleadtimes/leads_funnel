@@ -7,9 +7,11 @@ const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NE
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Allow the login page and Next.js internals to pass through
+  // Allow login, auth callbacks, api endpoints, and Next.js internals to pass through
   if (
     pathname.startsWith('/login') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon')
   ) {
