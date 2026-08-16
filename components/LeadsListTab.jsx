@@ -87,12 +87,12 @@ export default function LeadsListTab({ leads, onEdit }) {
             placeholder="Search org, bid no., category, assigned…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ flex: 2, minWidth: 220, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--line-soft)', background: 'var(--bg-input)', color: '#fff' }}
+            style={{ flex: 2, minWidth: 220, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--line-soft)', background: '#fff', color: 'var(--ink)' }}
           />
           <select
             value={filterSector}
             onChange={e => setFilterSector(e.target.value)}
-            style={{ flex: 1, minWidth: 140, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--line-soft)', background: 'var(--bg-input)', color: '#fff' }}
+            style={{ flex: 1, minWidth: 140, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--line-soft)', background: '#fff', color: 'var(--ink)' }}
           >
             <option value="">All Sectors</option>
             {availableSectors.map(s => <option key={s} value={s}>{s}</option>)}
@@ -100,7 +100,7 @@ export default function LeadsListTab({ leads, onEdit }) {
           <select
             value={filterStage}
             onChange={e => setFilterStage(e.target.value)}
-            style={{ flex: 1, minWidth: 160, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--line-soft)', background: 'var(--bg-input)', color: '#fff' }}
+            style={{ flex: 1, minWidth: 160, padding: '7px 10px', borderRadius: 6, border: '1px solid var(--line-soft)', background: '#fff', color: 'var(--ink)' }}
           >
             <option value="">All Stages</option>
             {availableStages.map(s => <option key={s} value={s}>{s}</option>)}

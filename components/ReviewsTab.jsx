@@ -79,7 +79,7 @@ export default function ReviewsTab({
               type="date"
               value={rd}
               onChange={e => setRefDate(e.target.value)}
-              style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--line-soft)', background: 'var(--bg-input)', color: '#fff' }}
+              style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--line-soft)', background: '#fff', color: 'var(--ink)' }}
             />
           </div>
         </div>
@@ -127,7 +127,7 @@ export default function ReviewsTab({
               step="10000"
               value={target}
               onChange={e => onTargetChange(reviewPeriod, e.target.value)}
-              style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '1px solid var(--line-soft)', background: 'var(--bg-input)', color: '#fff', fontFamily: 'var(--font-mono)' }}
+              style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '1px solid var(--line-soft)', background: '#fff', color: 'var(--ink)', fontFamily: 'var(--font-mono)' }}
             />
           </div>
 

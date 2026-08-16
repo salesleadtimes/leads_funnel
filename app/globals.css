@@ -41,9 +41,9 @@ header.topbar .stat-pill{font-family:var(--font-mono);font-size:11.5px;backgroun
 header.topbar .saving{font-size:11px;color:#FFC300;font-family:var(--font-mono);}
 
 nav.tabs{display:flex;gap:4px;padding:10px 22px 0 22px;background:var(--ink);border-top:1px solid rgba(255,255,255,.06);overflow-x:auto;}
-nav.tabs button{font-family:var(--font-body);font-weight:500;font-size:13px;color:#AEB8C4;background:transparent;border:none;padding:10px 16px;border-radius:8px 8px 0 0;cursor:pointer;white-space:nowrap;}
-nav.tabs button.active{background:var(--paper);color:var(--ink);font-weight:600;}
-nav.tabs button:hover:not(.active){color:#fff;}
+nav.tabs button, nav.tabs a, nav.tabs .nav-tab{font-family:var(--font-body);font-weight:500;font-size:13px;color:#ffffff;background:transparent;border:none;padding:10px 16px;border-radius:8px 8px 0 0;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
+nav.tabs button.active, nav.tabs a.active, nav.tabs .nav-tab.active{background:var(--paper);color:var(--ink);font-weight:600;text-decoration:none;}
+nav.tabs button:hover:not(.active), nav.tabs a:hover:not(.active), nav.tabs .nav-tab:hover:not(.active){color:#fff;text-decoration:none;background:rgba(255,255,255,0.08);}
 
 main{max-width:1180px;margin:0 auto;padding:24px 20px 80px;}
 
@@ -257,13 +257,15 @@ dialog .dfield input, dialog .dfield select, dialog .dfield textarea{padding:9px
 .user-name{font-size:12px;color:#AEB8C4;font-family:var(--font-mono);}
 .signout-btn{font-size:11px !important;padding:4px 10px !important;}
 .segment-switcher{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:12px;padding:5px 10px;cursor:pointer;}
+select option{background-color:#ffffff;color:var(--ink, #14181F);}
+.segment-switcher option, header.topbar select option{background-color:#1d2330;color:#ffffff;}
 .segment-pill{font-size:11.5px;background:rgba(0,145,213,.18);border:1px solid rgba(0,145,213,.3);border-radius:20px;padding:4px 10px;color:#5bc8f5;font-family:var(--font-mono);}
 
 /* nav-tabs alias (Navigation uses nav.nav-tabs) */
 nav.nav-tabs{display:flex;gap:4px;padding:10px 22px 0 22px;background:var(--ink);border-top:1px solid rgba(255,255,255,.06);overflow-x:auto;}
-nav.nav-tabs button.nav-tab{font-family:var(--font-body);font-weight:500;font-size:13px;color:#AEB8C4;background:transparent;border:none;padding:10px 16px;border-radius:8px 8px 0 0;cursor:pointer;white-space:nowrap;}
-nav.nav-tabs button.nav-tab.active{background:var(--paper);color:var(--ink);font-weight:600;}
-nav.nav-tabs button.nav-tab:hover:not(.active){color:#fff;}
+nav.nav-tabs .nav-tab, nav.nav-tabs a.nav-tab, nav.nav-tabs button.nav-tab{font-family:var(--font-body);font-weight:500;font-size:13px;color:#ffffff;background:transparent;border:none;padding:10px 16px;border-radius:8px 8px 0 0;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;gap:6px;}
+nav.nav-tabs .nav-tab.active, nav.nav-tabs a.nav-tab.active, nav.nav-tabs button.nav-tab.active{background:var(--paper);color:var(--ink);font-weight:600;text-decoration:none;}
+nav.nav-tabs .nav-tab:hover:not(.active), nav.nav-tabs a.nav-tab:hover:not(.active), nav.nav-tabs button.nav-tab:hover:not(.active){color:#fff;text-decoration:none;background:rgba(255,255,255,0.08);}
 
 /* =========================================================
    FORM EXTRAS

@@ -77,7 +77,7 @@ export async function POST(request) {
 
     // 6. Trigger Supabase Auth invitation email
     const requestOrigin = request.nextUrl.origin || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const redirectTo = `${requestOrigin}/auth/callback`;
+    const redirectTo = `${requestOrigin}/auth/callback?type=invite`;
 
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       cleanEmail,
