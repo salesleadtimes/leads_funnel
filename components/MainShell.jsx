@@ -4,9 +4,9 @@ import Header from './Header';
 import Navigation from './Navigation';
 import LeadModal from './LeadModal';
 import InviteUserModal from './InviteUserModal';
-import { LeadsProvider, useLeads } from '../lib/context/LeadsContext';
+import { useLeads } from '../lib/context/LeadsContext';
 
-function ShellContent({ children }) {
+export default function MainShell({ children }) {
   const {
     pipelineVal,
     saving,
@@ -62,13 +62,5 @@ function ShellContent({ children }) {
         onClose={closeInviteModal}
       />
     </>
-  );
-}
-
-export default function MainShell({ children }) {
-  return (
-    <LeadsProvider>
-      <ShellContent>{children}</ShellContent>
-    </LeadsProvider>
   );
 }

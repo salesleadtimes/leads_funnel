@@ -1,5 +1,6 @@
 import './globals.css';
 import { AuthProvider } from '../lib/context/AuthContext';
+import { LeadsProvider } from '../lib/context/LeadsContext';
 
 export const metadata = {
   title: 'Lead & Bid Manager — GeM · Government · Corporate',
@@ -14,7 +15,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <AuthProvider>
-          {children}
+          <LeadsProvider>
+            {children}
+          </LeadsProvider>
         </AuthProvider>
       </body>
     </html>
