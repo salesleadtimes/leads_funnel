@@ -4,16 +4,16 @@ import { LeadsProvider } from '../lib/context/LeadsContext';
 
 export const metadata = {
   title: 'Lead & Bid Manager — GeM · Government · Corporate',
-  description: 'Multi-segment GeM and lead tracking management tool for GEM bidding teams',
+  description: 'Multi-segment GeM and lead tracking management tool for Times IT Solutions bidding teams',
   icons: {
-    icon: '/Logo-1.png'
-  }
+    icon: '/Logo-1.png',
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body className="font-body antialiased">
         <AuthProvider>
           <LeadsProvider>
             {children}

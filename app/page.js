@@ -1,18 +1,18 @@
 'use client';
 
-import MainShell from '../components/MainShell';
-import DashboardTab from '../components/DashboardTab';
-import { useLeads } from '../lib/context/LeadsContext';
+import DashboardLayout from '@/components/layouts/dashboard-layout/DashboardLayout';
+import { DashboardOverview } from '@/features/dashboard/components/DashboardOverview';
+import { useLeads } from '@/lib/context/LeadsContext';
 
 function DashboardView() {
   const { leads } = useLeads();
-  return <DashboardTab leads={leads} />;
+  return <DashboardOverview leads={leads} />;
 }
 
 export default function Page() {
   return (
-    <MainShell>
+    <DashboardLayout>
       <DashboardView />
-    </MainShell>
+    </DashboardLayout>
   );
 }
