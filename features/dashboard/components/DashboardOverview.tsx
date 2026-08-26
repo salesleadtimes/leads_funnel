@@ -15,12 +15,13 @@ import { Separator } from '@/components/ui/separator';
 import { fmtINR } from '@/lib/utils';
 
 interface Lead {
-  stage?: string | { name?: string; is_won?: boolean; is_lost?: boolean };
-  sector?: string | { name?: string };
-  estValue?: number | string;
-  closedDate?: string;
-  createdDate?: string;
-  orgName?: string;
+  stage?: string | { name?: string; is_won?: boolean; is_lost?: boolean } | null;
+  sector?: string | { name?: string } | null;
+  estValue?: number | string | null;
+  closedDate?: string | null;
+  createdDate?: string | null;
+  createdAt?: string | null;
+  orgName?: string | null;
   [key: string]: unknown;
 }
 

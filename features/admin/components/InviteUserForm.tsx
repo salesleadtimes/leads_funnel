@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { UserPlus, Mail, User, ShieldCheck } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import {
+  UserPlus,
+  Mail,
+  User,
+  ShieldCheck,
+  Building2,
+  Target,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
+import { getPeriodValue, PeriodType } from '@/lib/utils/periodUtils';
+import { fmtINR } from '@/lib/utils';
 
 interface Segment {
   id: string;
@@ -51,6 +63,12 @@ export function InviteUserForm({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Target values state: { [segmentId]: { daily, weekly, monthly, quarterly, yearly } }
+  const [segmentTargets, setSegmentTargets] = useState<
+    Record<string, Record<PeriodType, string>>
+  >({});
+  const [expandedSegments, setExpandedSegments] = useState<Record<string, boolean>>({});
+
   // Sync native dialog open state if ref is provided
   useEffect(() => {
     const el = dialogRef?.current;
@@ -66,11 +84,26 @@ export function InviteUserForm({
     }
   }, [segments]);
 
+  // Keep target inputs initialized for selected segments
+  useEffect(() => {
+    setSegmentTargets((prev) => {
+      const next = { ...prev };
+      selectedSegments.forEach((id) => {
+        if (!next[id]) {
+          next[id] = { daily: '', weekly: '', monthly: '', quarterly: '', yearly: '' };
+        }
+      });
+      return next;
+    });
+  }, [selectedSegments]);
+
   function resetForm() {
     setEmail('');
     setFullName('');
     setRole('member');
     setSelected(segments.map((s) => s.id));
+    setSegmentTargets({});
+    setExpandedSegments({});
     setError('');
     setSuccess('');
   }
@@ -92,23 +125,85 @@ export function InviteUserForm({
     );
   }
 
+  function toggleTargetAccordion(segId: string) {
+    setExpandedSegments((prev) => ({
+      ...prev,
+      [segId]: !prev[segId],
+    }));
+  }
+
+  function handleTargetChange(segId: string, period: PeriodType, value: string) {
+    setSegmentTargets((prev) => ({
+      ...prev,
+      [segId]: {
+        ...(prev[segId] || { daily: '', weekly: '', monthly: '', quarterly: '', yearly: '' }),
+        [period]: value,
+      },
+    }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    if (!email || !email.includes('@')) { setError('Please enter a valid email address.'); return; }
-    if (!fullName.trim()) { setError('Please enter the user full name.'); return; }
-    if (selectedSegments.length === 0) { setError('Please select at least one segment.'); return; }
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (!fullName.trim()) {
+      setError('Please enter the user full name.');
+      return;
+    }
+    if (selectedSegments.length === 0) {
+      setError('Please select at least one segment.');
+      return;
+    }
+
+    // Build structured target records
+    const currentYear = new Date().getFullYear();
+    const targetsPayload: Array<{
+      segment_id: string;
+      period_type: string;
+      year: number;
+      period_value: number | null;
+      target_value: number;
+    }> = [];
+
+    const periodTypes: PeriodType[] = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
+
+    selectedSegments.forEach((segId) => {
+      const segTgt = segmentTargets[segId];
+      if (!segTgt) return;
+
+      periodTypes.forEach((p) => {
+        const val = Number(segTgt[p]);
+        if (val > 0) {
+          targetsPayload.push({
+            segment_id: segId,
+            period_type: p,
+            year: currentYear,
+            period_value: getPeriodValue(p, new Date()),
+            target_value: val,
+          });
+        }
+      });
+    });
 
     setLoading(true);
     try {
       const res = await fetch('/api/auth/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), full_name: fullName.trim(), role, segmentIds: selectedSegments }),
+        body: JSON.stringify({
+          email: email.trim(),
+          full_name: fullName.trim(),
+          role,
+          segmentIds: selectedSegments,
+          targets: targetsPayload,
+        }),
       });
+
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'Failed to send invitation.');
@@ -125,10 +220,18 @@ export function InviteUserForm({
     }
   }
 
-  return (
-    <Dialog open={isOpen} onOpenChange={(v) => { if (!v) handleClose(); }}>
+  const selectedSegmentObjects = useMemo(() => {
+    return segments.filter((s) => selectedSegments.includes(s.id));
+  }, [segments, selectedSegments]);
 
-      <DialogContent className="max-w-lg">
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(v) => {
+        if (!v) handleClose();
+      }}
+    >
+      <DialogContent className="max-w-xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -136,12 +239,14 @@ export function InviteUserForm({
             </div>
             <div>
               <DialogTitle>Invite New Team Member</DialogTitle>
-              <DialogDescription>Send a Supabase invitation link and assign business segments</DialogDescription>
+              <DialogDescription>
+                Send a Supabase invitation link, assign segments, and optionally configure targets
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <DialogBody>
+        <DialogBody className="overflow-y-auto pr-1 flex-1">
           {error && (
             <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">
               ⚠️ {error}
@@ -155,7 +260,10 @@ export function InviteUserForm({
 
           <form id="invite-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5"><Mail className="h-3 w-3" />Email Address *</Label>
+              <Label className="flex items-center gap-1.5">
+                <Mail className="h-3 w-3" />
+                Email Address *
+              </Label>
               <Input
                 type="email"
                 value={email}
@@ -166,7 +274,10 @@ export function InviteUserForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5"><User className="h-3 w-3" />Full Name *</Label>
+              <Label className="flex items-center gap-1.5">
+                <User className="h-3 w-3" />
+                Full Name *
+              </Label>
               <Input
                 type="text"
                 value={fullName}
@@ -177,7 +288,10 @@ export function InviteUserForm({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5"><ShieldCheck className="h-3 w-3" />Role</Label>
+              <Label className="flex items-center gap-1.5">
+                <ShieldCheck className="h-3 w-3" />
+                Role
+              </Label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -221,11 +335,11 @@ export function InviteUserForm({
                     {selectedSegments.length === segments.length ? 'Deselect All' : 'Select All'}
                   </button>
                 </div>
-                <div className="space-y-1.5 max-h-36 overflow-y-auto rounded-lg border border-input bg-muted/30 p-3">
+                <div className="space-y-1.5 max-h-32 overflow-y-auto rounded-lg border border-input bg-muted/30 p-2.5">
                   {segments.map((seg) => (
                     <label
                       key={seg.id}
-                      className="flex items-center gap-2.5 text-sm cursor-pointer hover:text-foreground text-foreground/80"
+                      className="flex items-center gap-2.5 text-sm cursor-pointer hover:text-foreground text-foreground/80 py-0.5"
                     >
                       <input
                         type="checkbox"
@@ -235,21 +349,170 @@ export function InviteUserForm({
                       />
                       <span>{seg.name}</span>
                       {seg.code && (
-                        <code className="text-[11px] text-muted-foreground font-mono">({seg.code})</code>
+                        <code className="text-[11px] text-muted-foreground font-mono">
+                          ({seg.code})
+                        </code>
                       )}
                     </label>
                   ))}
                 </div>
               </div>
             )}
+
+            {/* Optional Target Configuration Section */}
+            {selectedSegmentObjects.length > 0 && (
+              <div className="space-y-2.5 pt-2">
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="flex items-center gap-1.5 text-xs uppercase tracking-wide font-semibold text-primary">
+                      <Target className="h-3.5 w-3.5" />
+                      Set Targets (Optional)
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Configure initial targets for each selected segment.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  {selectedSegmentObjects.map((seg) => {
+                    const isExpanded = expandedSegments[seg.id] ?? false;
+                    const segForm = segmentTargets[seg.id] || {
+                      daily: '',
+                      weekly: '',
+                      monthly: '',
+                      quarterly: '',
+                      yearly: '',
+                    };
+
+                    const hasAnyTarget = Object.values(segForm).some((v) => Number(v) > 0);
+
+                    return (
+                      <div
+                        key={seg.id}
+                        className="rounded-lg border border-border/80 bg-muted/20 overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleTargetAccordion(seg.id)}
+                          className="w-full flex items-center justify-between p-2.5 text-xs font-semibold text-left hover:bg-muted/40 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-3.5 w-3.5 text-[#00AEEF]" />
+                            <span>{seg.name}</span>
+                            {hasAnyTarget && (
+                              <Badge variant="won" className="text-[9px] px-1 py-0 h-4">
+                                Configured
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-muted-foreground flex items-center gap-1 text-[11px]">
+                            {isExpanded ? (
+                              <>
+                                Hide <ChevronUp className="h-3 w-3" />
+                              </>
+                            ) : (
+                              <>
+                                Configure Targets <ChevronDown className="h-3 w-3" />
+                              </>
+                            )}
+                          </span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="p-3 pt-1 border-t border-border/50 bg-background/60 grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                            <div className="space-y-1">
+                              <Label className="text-[11px] text-muted-foreground">Daily (₹)</Label>
+                              <Input
+                                type="number"
+                                step="1000"
+                                placeholder="50000"
+                                value={segForm.daily}
+                                onChange={(e) =>
+                                  handleTargetChange(seg.id, 'daily', e.target.value)
+                                }
+                                className="h-8 text-xs font-mono"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <Label className="text-[11px] text-muted-foreground">Weekly (₹)</Label>
+                              <Input
+                                type="number"
+                                step="10000"
+                                placeholder="250000"
+                                value={segForm.weekly}
+                                onChange={(e) =>
+                                  handleTargetChange(seg.id, 'weekly', e.target.value)
+                                }
+                                className="h-8 text-xs font-mono"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <Label className="text-[11px] font-semibold text-primary">Monthly (₹)</Label>
+                              <Input
+                                type="number"
+                                step="50000"
+                                placeholder="1000000"
+                                value={segForm.monthly}
+                                onChange={(e) =>
+                                  handleTargetChange(seg.id, 'monthly', e.target.value)
+                                }
+                                className="h-8 text-xs font-mono border-primary/40"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <Label className="text-[11px] text-muted-foreground">Quarterly (₹)</Label>
+                              <Input
+                                type="number"
+                                step="100000"
+                                placeholder="3000000"
+                                value={segForm.quarterly}
+                                onChange={(e) =>
+                                  handleTargetChange(seg.id, 'quarterly', e.target.value)
+                                }
+                                className="h-8 text-xs font-mono"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <Label className="text-[11px] text-muted-foreground">Yearly (₹)</Label>
+                              <Input
+                                type="number"
+                                step="500000"
+                                placeholder="12000000"
+                                value={segForm.yearly}
+                                onChange={(e) =>
+                                  handleTargetChange(seg.id, 'yearly', e.target.value)
+                                }
+                                className="h-8 text-xs font-mono"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </form>
         </DialogBody>
 
-        <DialogFooter>
+        <DialogFooter className="pt-2">
           <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
-          <Button type="submit" form="invite-form" variant="hp" disabled={loading} className="gap-1.5">
+          <Button
+            type="submit"
+            form="invite-form"
+            variant="hp"
+            disabled={loading}
+            className="gap-1.5"
+          >
             <UserPlus className="h-4 w-4" />
             {loading ? 'Sending…' : 'Send Invitation'}
           </Button>

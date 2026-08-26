@@ -2,25 +2,31 @@ import { useState, useEffect, useCallback } from 'react';
 
 const LOCAL_STORAGE_KEY = 'hp_sales_funnel_backup_data';
 
-export function uid() {
-  return "HPQ-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+export function uid(): string {
+  return 'HPQ-' + Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-export function todayISO() {
+export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+export interface SalesDataState {
+  leads: any[];
+  targets: Record<string, number>;
+  [key: string]: any;
+}
+
 export function useSalesData() {
-  const [state, setState] = useState(null);
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [state, setState] = useState<SalesDataState | null>(null);
+  const [loaded, setLoaded] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<boolean>(false);
 
   const loadData = useCallback(async () => {
     try {
       const res = await fetch('/api/data', {
         cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache, no-store' }
+        headers: { 'Cache-Control': 'no-cache, no-store' },
       });
       if (!res.ok) {
         throw new Error(`Server returned ${res.status}`);
@@ -31,7 +37,9 @@ export function useSalesData() {
       } else {
         setState(data);
         setLoadError(null);
-        try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data)); } catch {}
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+        } catch {}
       }
     } catch (err) {
       // Fallback to local storage if API fails
@@ -54,7 +62,7 @@ export function useSalesData() {
     loadData();
   }, [loadData]);
 
-  async function addLead(leadData) {
+  async function addLead(leadData: Record<string, any>) {
     if (!state) return;
     const lead = {
       ...leadData,
@@ -62,19 +70,22 @@ export function useSalesData() {
       qty: Number(leadData.qty) || 1,
       estValue: Number(leadData.estValue) || 0,
       createdDate: leadData.createdDate || todayISO(),
-      closedDate: (leadData.stage === "Won" || leadData.stage === "Lost") ? todayISO() : null
+      closedDate:
+        leadData.stage === 'Won' || leadData.stage === 'Lost' ? todayISO() : null,
     };
 
-    const nextState = { ...state, leads: [lead, ...state.leads] };
+    const nextState: SalesDataState = { ...state, leads: [lead, ...state.leads] };
     setState(nextState);
-    try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState)); } catch {}
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
+    } catch {}
 
     setSaving(true);
     try {
       const res = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lead)
+        body: JSON.stringify(lead),
       });
       if (!res.ok) {
         console.warn('API sync warning: failed to create lead on server');
@@ -86,19 +97,21 @@ export function useSalesData() {
     }
   }
 
-  async function updateLead(id, patch) {
+  async function updateLead(id: string, patch: Record<string, any>) {
     if (!state) return;
-    const newLeads = state.leads.map(l => l.id === id ? { ...l, ...patch } : l);
-    const nextState = { ...state, leads: newLeads };
+    const newLeads = state.leads.map((l) => (l.id === id ? { ...l, ...patch } : l));
+    const nextState: SalesDataState = { ...state, leads: newLeads };
     setState(nextState);
-    try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState)); } catch {}
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
+    } catch {}
 
     setSaving(true);
     try {
       const res = await fetch(`/api/leads/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch)
+        body: JSON.stringify(patch),
       });
       if (!res.ok) {
         console.warn('API sync warning: failed to update lead on server');
@@ -110,11 +123,16 @@ export function useSalesData() {
     }
   }
 
-  async function deleteLead(id) {
+  async function deleteLead(id: string) {
     if (!state) return;
-    const nextState = { ...state, leads: state.leads.filter(l => l.id !== id) };
+    const nextState: SalesDataState = {
+      ...state,
+      leads: state.leads.filter((l) => l.id !== id),
+    };
     setState(nextState);
-    try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState)); } catch {}
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
+    } catch {}
 
     setSaving(true);
     try {
@@ -129,19 +147,21 @@ export function useSalesData() {
     }
   }
 
-  async function updateTargets(newTargets) {
+  async function updateTargets(newTargets: Record<string, number>) {
     if (!state) return;
     const updatedTargets = { ...state.targets, ...newTargets };
-    const nextState = { ...state, targets: updatedTargets };
+    const nextState: SalesDataState = { ...state, targets: updatedTargets };
     setState(nextState);
-    try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState)); } catch {}
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(nextState));
+    } catch {}
 
     setSaving(true);
     try {
       const res = await fetch('/api/targets', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedTargets)
+        body: JSON.stringify(updatedTargets),
       });
       if (!res.ok) {
         console.warn('API sync warning: failed to update targets on server');
@@ -153,15 +173,17 @@ export function useSalesData() {
     }
   }
 
-  async function importState(newState) {
+  async function importState(newState: SalesDataState) {
     setState(newState);
-    try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newState)); } catch {}
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newState));
+    } catch {}
     setSaving(true);
     try {
       const res = await fetch('/api/data', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newState)
+        body: JSON.stringify(newState),
       });
       if (!res.ok) {
         console.warn('API sync warning: backend update failed, local backup preserved');
@@ -183,6 +205,6 @@ export function useSalesData() {
     updateLead,
     deleteLead,
     updateTargets,
-    importState
+    importState,
   };
 }

@@ -28,8 +28,8 @@ export const STAGE_COLORS: Record<string, string> = {
 export const OPEN_STAGES = STAGES.filter((s) => s !== 'Won' && s !== 'Lost');
 
 interface Lead {
-  stage?: string | { name?: string; is_won?: boolean; is_lost?: boolean };
-  estValue?: number | string;
+  stage?: string | { name?: string; is_won?: boolean; is_lost?: boolean } | null;
+  estValue?: number | string | null;
   [key: string]: unknown;
 }
 

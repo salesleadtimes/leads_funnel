@@ -1,8 +1,10 @@
+import { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '../lib/context/AuthContext';
 import { LeadsProvider } from '../lib/context/LeadsContext';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Lead & Bid Manager — GeM · Government · Corporate',
   description: 'Multi-segment GeM and lead tracking management tool for Times IT Solutions bidding teams',
   icons: {
@@ -10,14 +12,12 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-body antialiased">
         <AuthProvider>
-          <LeadsProvider>
-            {children}
-          </LeadsProvider>
+          <LeadsProvider>{children}</LeadsProvider>
         </AuthProvider>
       </body>
     </html>

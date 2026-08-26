@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, FileX } from 'lucide-react';
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Eye, FileX } from 'lucide-react';
 import { StageBadge } from './StageBadge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,20 +19,21 @@ import { fmtINR, fmtDate } from '@/lib/utils';
 
 interface Lead {
   id: string;
-  leadNumber?: string;
-  orgName?: string;
-  deptIndustry?: string;
-  contactPerson?: string;
-  estValue?: number | string;
-  expectedClose?: string;
-  stage?: { name?: string; is_won?: boolean; is_lost?: boolean } | string;
-  sector?: { name?: string } | string;
-  category?: { name?: string };
-  modelDetails?: string;
-  qty?: number;
-  gemBid?: { gem_bid_number?: string; tender_ref?: string };
-  assignedProfile?: { full_name?: string };
-  createdAt?: string;
+  leadNumber?: string | null;
+  orgName?: string | null;
+  deptIndustry?: string | null;
+  contactPerson?: string | null;
+  estValue?: number | string | null;
+  expectedClose?: string | null;
+  stage?: { name?: string; is_won?: boolean; is_lost?: boolean } | string | null;
+  sector?: { name?: string } | string | null;
+  category?: { name?: string } | null;
+  modelDetails?: string | null;
+  qty?: number | null;
+  gemBid?: { gem_bid_number?: string; tender_ref?: string } | null;
+  assignedProfile?: { full_name?: string } | null;
+  createdAt?: string | null;
+  createdBy?: string | null;
   [key: string]: unknown;
 }
 
@@ -257,15 +258,29 @@ export function LeadsTable({ leads, onEdit }: LeadsTableProps) {
                     {l.assignedProfile?.full_name || '—'}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2.5 gap-1.5"
-                      onClick={() => onEdit(l.id)}
-                    >
-                      <Pencil className="h-3 w-3" />
-                      Edit
-                    </Button>
+                    {(() => {
+                      const canEdit = isOwner || (l.createdBy && auth.user?.id && l.createdBy === auth.user.id);
+                      return (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2.5 gap-1.5"
+                          onClick={() => onEdit(l.id)}
+                        >
+                          {canEdit ? (
+                            <>
+                              <Pencil className="h-3 w-3" />
+                              Edit
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-3 w-3" />
+                              View
+                            </>
+                          )}
+                        </Button>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))}

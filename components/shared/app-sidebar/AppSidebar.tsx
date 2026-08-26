@@ -40,6 +40,7 @@ const NAV_ITEMS = [
 
 const ADMIN_ITEMS = [
   { href: '/admin', label: 'Admin', icon: Settings2 },
+  { href: '/admin/members', label: 'Members & Targets', icon: Users },
 ];
 
 function NavItem({

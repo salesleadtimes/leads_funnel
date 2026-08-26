@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { STAGE_COLORS } from '@/features/dashboard/components/FunnelChart';
 
 interface StageBadgeProps {
-  stage?: string | { name?: string; is_won?: boolean; is_lost?: boolean };
+  stage?: string | { name?: string; is_won?: boolean; is_lost?: boolean } | null;
   className?: string;
 }
 
