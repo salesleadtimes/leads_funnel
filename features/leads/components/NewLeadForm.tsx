@@ -160,7 +160,7 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
               </div>
               <div className="space-y-1.5">
                 <Label>Estimated Deal Value (₹) *</Label>
-                <Input name="estValue" type="number" step="1000" required placeholder="540000" />
+                <Input name="estValue" type="number" step="1" min="0" required placeholder="540000" />
               </div>
 
               <div className="space-y-1.5">

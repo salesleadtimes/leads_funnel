@@ -358,7 +358,8 @@ export function LeadFormDialog({
                 <Input
                   name="estValue"
                   type="number"
-                  step="1000"
+                  step="1"
+                  min="0"
                   defaultValue={lead.estValue as number}
                   required
                   disabled={!canEdit}

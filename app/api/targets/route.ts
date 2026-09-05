@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import {
-  getTargets,
-  bulkUpsertTargets,
-  upsertTarget,
+  getAllMemberTargets,
+  upsertMemberTarget,
+  derivePeriodTargets,
 } from '../../../lib/services/targetsService';
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +15,11 @@ const NO_CACHE_HEADERS = {
   Expires: '0',
 };
 
+/**
+ * GET /api/targets
+ * Returns member_targets rows enriched with derived period amounts.
+ * Query params: segment_id, user_id (or 'all'), year
+ */
 export async function GET(request: NextRequest) {
   try {
     const supabaseServer = await createSupabaseServerClient();
@@ -43,14 +48,6 @@ export async function GET(request: NextRequest) {
       searchParams.get('segment_id') || searchParams.get('segmentId') || null;
     const yearParam = searchParams.get('year');
     const year = yearParam ? parseInt(yearParam, 10) : null;
-    const periodType =
-      searchParams.get('period_type') || searchParams.get('periodType') || null;
-    const periodValueParam =
-      searchParams.get('period_value') || searchParams.get('periodValue');
-    const periodValue =
-      periodValueParam !== null && periodValueParam !== undefined
-        ? parseInt(periodValueParam, 10)
-        : undefined;
 
     // For non-owner, enforce user_id = authenticated user ID
     let userId: string | null | undefined =
@@ -61,15 +58,28 @@ export async function GET(request: NextRequest) {
       userId = undefined;
     }
 
-    const targets = await getTargets({
+    const targets = await getAllMemberTargets({
       segmentId,
       userId: userId === undefined ? undefined : userId || null,
       year,
-      periodType,
-      periodValue,
     });
 
-    return NextResponse.json(targets, { headers: NO_CACHE_HEADERS });
+    // Enrich each target with derived period amounts for easy frontend use
+    const enriched = targets.map((t: any) => {
+      const derived = derivePeriodTargets(Number(t.daily_target_amount) || 0);
+      return {
+        ...t,
+        derivedTargets: {
+          daily: derived.daily,
+          weekly: derived.weekly,
+          monthly: derived.monthly,
+          quarterly: derived.quarterly,
+          annual: derived.annual,
+        },
+      };
+    });
+
+    return NextResponse.json(enriched, { headers: NO_CACHE_HEADERS });
   } catch (err) {
     return NextResponse.json(
       { error: 'Failed to fetch targets', detail: String(err) },
@@ -78,6 +88,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * PUT /api/targets
+ * Accepts:
+ *   { segment_id, user_id?, year, daily_target_amount }
+ * or array of the above.
+ * Upserts into member_targets table.
+ */
 export async function PUT(request: NextRequest) {
   try {
     const supabaseServer = await createSupabaseServerClient();
@@ -111,16 +128,25 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    let updated;
-    if (Array.isArray(body)) {
-      updated = await bulkUpsertTargets(body);
-    } else if (Array.isArray(body.targets)) {
-      updated = await bulkUpsertTargets(body.targets);
-    } else {
-      updated = await upsertTarget(body);
+    const items: any[] = Array.isArray(body) ? body : Array.isArray(body.targets) ? body.targets : [body];
+
+    const results = [];
+    for (const item of items) {
+      const segmentId = item.segment_id || item.segmentId;
+      const userId = item.user_id || item.userId || null;
+      const year = Number(item.year) || new Date().getFullYear();
+      const dailyTargetAmount = Number(item.daily_target_amount ?? item.dailyTargetAmount) || 0;
+
+      if (!segmentId) {
+        return NextResponse.json({ error: 'segment_id is required' }, { status: 400 });
+      }
+
+      const result = await upsertMemberTarget({ segmentId, userId, year, dailyTargetAmount });
+      const derived = derivePeriodTargets(Number(result.daily_target_amount) || 0);
+      results.push({ ...result, derivedTargets: derived });
     }
 
-    return NextResponse.json(updated);
+    return NextResponse.json(results.length === 1 ? results[0] : results);
   } catch (err) {
     return NextResponse.json(
       { error: 'Failed to update targets', detail: String(err) },

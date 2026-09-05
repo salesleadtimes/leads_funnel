@@ -1,5 +1,11 @@
 import { createSupabaseBrowserClient } from '../supabase/client';
-import { getTargets, bulkUpsertTargets, getTargetAchievement } from './targetsService';
+import {
+  getMemberTargetsByUser,
+  upsertMemberTarget,
+  getTargetAchievement,
+  derivePeriodTargets,
+  MemberTarget,
+} from './targetsService';
 import { PeriodType } from '../utils/periodUtils';
 
 const supabase = createSupabaseBrowserClient();
@@ -29,7 +35,8 @@ export interface MemberDetailsResult {
   };
   assignedSegments: any[];
   allSegments: any[];
-  targets: any[];
+  /** member_targets rows for this user+year — one per segment */
+  memberTargets: MemberTarget[];
   achievements: Record<string, Record<string, any>>;
 }
 
@@ -40,7 +47,7 @@ export async function getMembersList(): Promise<MemberListItem[]> {
   const [
     { data: profiles, error: profErr },
     { data: userSegs, error: segErr },
-    { data: targets, error: targetErr }
+    { data: memberTargets, error: targetErr }
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -50,17 +57,15 @@ export async function getMembersList(): Promise<MemberListItem[]> {
       .from('user_segments')
       .select('user_id, segment_id, segments(id, code, name, is_active)'),
     supabase
-      .from('targets')
-      .select('id, segment_id, user_id, year, period_type, period_value, target_value')
+      .from('member_targets')
+      .select('id, segment_id, user_id, year, daily_target_amount')
       .not('user_id', 'is', null)
+      .eq('year', new Date().getFullYear())
   ]);
 
   if (profErr) throw profErr;
   if (segErr) console.warn('[memberService] user_segments fetch error:', segErr);
-  if (targetErr) console.warn('[memberService] targets fetch error:', targetErr);
-
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth() + 1;
+  if (targetErr) console.warn('[memberService] member_targets fetch error:', targetErr);
 
   // Group segments by user_id
   const segmentsByUser: Record<string, any[]> = {};
@@ -69,9 +74,9 @@ export async function getMembersList(): Promise<MemberListItem[]> {
     if (us.segments) segmentsByUser[us.user_id].push(us.segments);
   });
 
-  // Group targets by user_id
+  // Group member_targets by user_id
   const targetsByUser: Record<string, any[]> = {};
-  ((targets || []) as any[]).forEach((t) => {
+  ((memberTargets || []) as any[]).forEach((t) => {
     if (!targetsByUser[t.user_id]) targetsByUser[t.user_id] = [];
     targetsByUser[t.user_id].push(t);
   });
@@ -80,15 +85,11 @@ export async function getMembersList(): Promise<MemberListItem[]> {
     const userTargets = targetsByUser[prof.id] || [];
     const assigned = segmentsByUser[prof.id] || [];
 
-    // Compute active monthly target sum across assigned segments for current month
-    const monthlyTargetTotal = userTargets
-      .filter(
-        (t) =>
-          t.year === currentYear &&
-          (t.period_type === 'month' || t.period_type === 'monthly') &&
-          (t.period_value === currentMonth || t.period_value === null)
-      )
-      .reduce((sum, t) => sum + (Number(t.target_value) || 0), 0);
+    // Monthly target = sum of (daily_target_amount × 30) across all segments
+    const monthlyTargetTotal = userTargets.reduce(
+      (sum, t) => sum + (Number(t.daily_target_amount) || 0) * 30,
+      0
+    );
 
     return {
       id: prof.id,
@@ -117,7 +118,7 @@ export async function getMemberDetails(
     { data: profile, error: profErr },
     { data: userSegs, error: segErr },
     { data: allSegs, error: allSegErr },
-    userTargets
+    memberTargets
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -133,7 +134,7 @@ export async function getMemberDetails(
       .select('id, code, name, description, is_active')
       .eq('is_active', true)
       .order('name'),
-    getTargets({ userId, year: Number(year) || new Date().getFullYear() })
+    getMemberTargetsByUser(userId, year)
   ]);
 
   if (profErr) throw profErr;
@@ -175,7 +176,7 @@ export async function getMemberDetails(
     },
     assignedSegments,
     allSegments: (allSegs || []) as any[],
-    targets: (userTargets || []) as any[],
+    memberTargets: memberTargets || [],
     achievements,
   };
 }
@@ -259,13 +260,44 @@ export async function updateMemberSegments(
 }
 
 /**
- * Save targets for a member across multiple segments and periods.
+ * Save the daily target for a member for a specific segment and year.
+ * This replaces the old saveMemberTargets which saved 5 period rows.
+ */
+export async function saveMemberDailyTarget(
+  userId: string,
+  segmentId: string,
+  year: number,
+  dailyTargetAmount: number
+): Promise<MemberTarget> {
+  return upsertMemberTarget({ userId, segmentId, year, dailyTargetAmount });
+}
+
+/**
+ * @deprecated Use saveMemberDailyTarget instead.
+ * Kept for backward compatibility — converts old 5-period payload to a single daily target.
  */
 export async function saveMemberTargets(userId: string, targetsList: any[] = []): Promise<any[]> {
-  const withUser = (targetsList || []).map((t) => ({
-    ...t,
-    userId,
-    user_id: userId,
-  }));
-  return await bulkUpsertTargets(withUser);
+  const results: any[] = [];
+  for (const t of targetsList) {
+    const segId = t.segmentId || t.segment_id;
+    const year = Number(t.year) || new Date().getFullYear();
+    const periodType = (t.periodType || t.period_type || 'daily') as string;
+    const rawValue = Number(t.targetValue ?? t.target_value) || 0;
+
+    // Back-calculate daily from whatever period is given
+    let dailyAmount = rawValue;
+    if (periodType === 'weekly' || periodType === 'week') dailyAmount = rawValue / 7;
+    else if (periodType === 'monthly' || periodType === 'month') dailyAmount = rawValue / 30;
+    else if (periodType === 'quarterly' || periodType === 'quarter') dailyAmount = rawValue / 90;
+    else if (periodType === 'yearly' || periodType === 'year') dailyAmount = rawValue / 365;
+
+    const result = await upsertMemberTarget({
+      userId,
+      segmentId: segId,
+      year,
+      dailyTargetAmount: Math.round(dailyAmount * 100) / 100,
+    });
+    results.push(result);
+  }
+  return results;
 }

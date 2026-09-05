@@ -40,6 +40,188 @@ export interface UpsertTargetParams {
   targetValue: number;
 }
 
+// ============================================================================
+// NEW: member_targets (single daily target per user+segment+year)
+// ============================================================================
+
+export interface MemberTarget {
+  id: string;
+  segment_id: string;
+  user_id: string | null;
+  year: number;
+  daily_target_amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DerivedPeriodTargets {
+  daily: number;
+  weekly: number;
+  monthly: number;
+  quarterly: number;
+  annual: number;
+}
+
+/**
+ * Derive all period targets from a daily base amount.
+ * Multipliers (per spec): weekly=×7, monthly=×30, quarterly=×90, annual=×365
+ */
+export function derivePeriodTargets(dailyAmount: number): DerivedPeriodTargets {
+  const d = Math.max(0, Number(dailyAmount) || 0);
+  return {
+    daily: d,
+    weekly: d * 7,
+    monthly: d * 30,
+    quarterly: d * 90,
+    annual: d * 365,
+  };
+}
+
+/**
+ * Get a single member target row for (userId, segmentId, year).
+ * Falls back to segment-wide target if no user-specific target exists.
+ */
+export async function getMemberTarget(
+  userId: string | null,
+  segmentId: string,
+  year: number
+): Promise<MemberTarget | null> {
+  // First try user-specific target
+  if (userId) {
+    const { data: userTarget } = await supabase
+      .from('member_targets')
+      .select('*')
+      .eq('segment_id', segmentId)
+      .eq('user_id', userId)
+      .eq('year', year)
+      .maybeSingle();
+    if (userTarget) return userTarget as MemberTarget;
+  }
+
+  // Fall back to segment-wide target (user_id IS NULL)
+  const { data: fallback } = await supabase
+    .from('member_targets')
+    .select('*')
+    .eq('segment_id', segmentId)
+    .is('user_id', null)
+    .eq('year', year)
+    .maybeSingle();
+
+  return (fallback as MemberTarget) || null;
+}
+
+/**
+ * Get all member targets for a user across all their segments and years.
+ */
+export async function getMemberTargetsByUser(
+  userId: string,
+  year?: number | null
+): Promise<MemberTarget[]> {
+  let query = supabase
+    .from('member_targets')
+    .select('*, segments:segment_id(id, code, name)')
+    .eq('user_id', userId);
+
+  if (year) {
+    query = query.eq('year', year);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as MemberTarget[];
+}
+
+/**
+ * Get all member targets (owner view — can filter by segment, user, year).
+ */
+export async function getAllMemberTargets(params: {
+  segmentId?: string | null;
+  userId?: string | null;
+  year?: number | null;
+} = {}): Promise<MemberTarget[]> {
+  let query = supabase
+    .from('member_targets')
+    .select('*, segments:segment_id(id, code, name), profiles:user_id(id, email, full_name)');
+
+  if (params.segmentId) query = query.eq('segment_id', params.segmentId);
+  if (params.userId !== undefined) {
+    if (params.userId === null) {
+      query = query.is('user_id', null);
+    } else {
+      query = query.eq('user_id', params.userId);
+    }
+  }
+  if (params.year) query = query.eq('year', params.year);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as MemberTarget[];
+}
+
+/**
+ * Upsert a single member target.
+ * Uses ON CONFLICT on the unique constraint (segment_id, user_id, year).
+ */
+export async function upsertMemberTarget({
+  userId = null,
+  segmentId,
+  year,
+  dailyTargetAmount,
+}: {
+  userId?: string | null;
+  segmentId: string;
+  year: number;
+  dailyTargetAmount: number;
+}): Promise<MemberTarget> {
+  const cleanAmount = Math.max(0, Number(dailyTargetAmount) || 0);
+  const cleanYear = Number(year) || new Date().getFullYear();
+
+  const row = {
+    segment_id: segmentId,
+    user_id: userId || null,
+    year: cleanYear,
+    daily_target_amount: cleanAmount,
+  };
+
+  // Try to find existing record first (avoid ON CONFLICT issues with NULL user_id)
+  let findQuery = supabase
+    .from('member_targets')
+    .select('id')
+    .eq('segment_id', segmentId)
+    .eq('year', cleanYear);
+
+  if (userId) {
+    findQuery = findQuery.eq('user_id', userId);
+  } else {
+    findQuery = findQuery.is('user_id', null);
+  }
+
+  const { data: existing } = await findQuery.maybeSingle();
+
+  if (existing?.id) {
+    const { data: updated, error } = await supabase
+      .from('member_targets')
+      .update({ daily_target_amount: cleanAmount, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return updated as MemberTarget;
+  } else {
+    const { data: inserted, error } = await supabase
+      .from('member_targets')
+      .insert(row)
+      .select()
+      .single();
+    if (error) throw error;
+    return inserted as MemberTarget;
+  }
+}
+
+// ============================================================================
+// LEGACY: targets table functions (kept for backward compat / achievement queries)
+// ============================================================================
+
 /**
  * Fetch targets with optional filters.
  */
@@ -237,6 +419,10 @@ export interface TargetAchievementParams {
 
 /**
  * Compute target achievement for a member + segment + period.
+ * Now reads the daily target from member_targets and derives the period target
+ * using the standard multipliers. Falls back to the legacy targets table if
+ * no member_targets row exists (backward compat).
+ *
  * Strict rules:
  *  - created_by = userId (if userId provided)
  *  - segment_id = segmentId
@@ -251,50 +437,74 @@ export async function getTargetAchievement({
 }: TargetAchievementParams): Promise<TargetAchievementResult> {
   const period = getPeriodRange(periodType, refDate);
   const norm = period.periodType;
+  const year = period.year;
 
-  // 1. Fetch matching target
-  let targetQuery = supabase
-    .from('targets')
-    .select('*')
-    .eq('segment_id', segmentId)
-    .eq('year', period.year)
-    .in('period_type', [norm, periodType]);
+  // 1. Fetch target from member_targets (new model)
+  let targetValue = 0;
+  let hasTarget = false;
+  let targetId: string | null = null;
 
-  if (period.periodValue !== null) {
-    targetQuery = targetQuery.eq('period_value', period.periodValue);
+  const memberTarget = await getMemberTarget(userId, segmentId, year);
+  if (memberTarget && memberTarget.daily_target_amount > 0) {
+    const derived = derivePeriodTargets(memberTarget.daily_target_amount);
+    const periodKey = norm as keyof DerivedPeriodTargets;
+    // Map period type to derived field
+    const periodToKey: Record<PeriodType, keyof DerivedPeriodTargets> = {
+      daily: 'daily',
+      weekly: 'weekly',
+      monthly: 'monthly',
+      quarterly: 'quarterly',
+      yearly: 'annual',
+    };
+    targetValue = derived[periodToKey[norm] || 'monthly'];
+    hasTarget = true;
+    targetId = memberTarget.id;
   } else {
-    targetQuery = targetQuery.is('period_value', null);
-  }
-
-  if (userId) {
-    targetQuery = targetQuery.eq('user_id', userId);
-  } else {
-    targetQuery = targetQuery.is('user_id', null);
-  }
-
-  const { data: targetRows, error: targetErr } = await targetQuery;
-  if (targetErr) console.warn('[targetsService] Target query error:', targetErr);
-
-  let targetRecord = targetRows && targetRows.length > 0 ? targetRows[0] : null;
-
-  // If member has no target, check segment fallback target if applicable
-  if (!targetRecord && userId) {
-    const { data: fallbackRows } = await supabase
+    // Legacy fallback: read from old targets table
+    let targetQuery = supabase
       .from('targets')
       .select('*')
       .eq('segment_id', segmentId)
-      .is('user_id', null)
-      .eq('year', period.year)
-      .in('period_type', [norm, periodType])
-      .maybeSingle();
+      .eq('year', year)
+      .in('period_type', [norm, periodType]);
 
-    if (fallbackRows) {
-      targetRecord = fallbackRows;
+    if (period.periodValue !== null) {
+      targetQuery = targetQuery.eq('period_value', period.periodValue);
+    } else {
+      targetQuery = targetQuery.is('period_value', null);
     }
-  }
 
-  const targetValue = targetRecord ? Number(targetRecord.target_value) || 0 : 0;
-  const hasTarget = Boolean(targetRecord);
+    if (userId) {
+      targetQuery = targetQuery.eq('user_id', userId);
+    } else {
+      targetQuery = targetQuery.is('user_id', null);
+    }
+
+    const { data: targetRows, error: targetErr } = await targetQuery;
+    if (targetErr) console.warn('[targetsService] Target query error:', targetErr);
+
+    let targetRecord = targetRows && targetRows.length > 0 ? targetRows[0] : null;
+
+    // If member has no target, check segment fallback target if applicable
+    if (!targetRecord && userId) {
+      const { data: fallbackRows } = await supabase
+        .from('targets')
+        .select('*')
+        .eq('segment_id', segmentId)
+        .is('user_id', null)
+        .eq('year', year)
+        .in('period_type', [norm, periodType])
+        .maybeSingle();
+
+      if (fallbackRows) {
+        targetRecord = fallbackRows;
+      }
+    }
+
+    targetValue = targetRecord ? Number(targetRecord.target_value) || 0 : 0;
+    hasTarget = Boolean(targetRecord);
+    targetId = targetRecord?.id || null;
+  }
 
   // 2. Query leads created by the member in this segment within the period
   let leadsQuery = supabase
@@ -332,7 +542,7 @@ export async function getTargetAchievement({
     targetValue > 0 ? Math.round((achievedValue / targetValue) * 100) : 0;
 
   return {
-    targetId: targetRecord?.id || null,
+    targetId,
     targetValue,
     hasTarget,
     achievedValue,
