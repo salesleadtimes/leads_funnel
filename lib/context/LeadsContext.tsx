@@ -52,7 +52,8 @@ const LeadsContext = createContext<LeadsContextType | null>(null);
 
 export function LeadsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { activeSegment, isOwner, profile, allSegments, loading: authLoading } = useAuth();
+  const { activeSegment, isOwner, profile, allSegments, loading: authLoading, selectedMemberId } = useAuth();
+
 
   const [leads, setLeads] = useState<LeadModel[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -65,21 +66,31 @@ export function LeadsProvider({ children }: { children: ReactNode }) {
   const loadLeads = useCallback(async () => {
     setDataLoading(true);
     try {
-      const segId = activeSegment?.id || null;
-      const data = await getLeads({ segmentId: isOwner ? segId : segId || null });
-      setLeads((data || []) as LeadModel[]);
+      if (isOwner) {
+        // Owner dashboard: filter by selected member (assigned_to), or show all
+        const data = await getLeads({
+          assignedTo: selectedMemberId || null,
+        });
+        setLeads((data || []) as LeadModel[]);
+      } else {
+        // Member view: filter by their active segment (RLS also enforces this)
+        const segId = activeSegment?.id || null;
+        const data = await getLeads({ segmentId: segId });
+        setLeads((data || []) as LeadModel[]);
+      }
     } catch (err) {
       console.error('Failed to load leads:', err);
     } finally {
       setDataLoading(false);
     }
-  }, [activeSegment?.id, isOwner]);
+  }, [selectedMemberId, activeSegment?.id, isOwner]);
 
   useEffect(() => {
     if (!authLoading) {
       loadLeads();
     }
   }, [authLoading, loadLeads]);
+
 
   const [isInviteOpen, setIsInviteOpen] = useState(false);
 

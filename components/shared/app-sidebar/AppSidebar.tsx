@@ -13,8 +13,8 @@ import {
   RefreshCw,
   ChevronDown,
   Users,
-  Crown,
   Building2,
+  UserCircle2,
 } from 'lucide-react';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useLeads } from '@/lib/context/LeadsContext';
@@ -28,7 +28,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { fmtINR } from '@/lib/utils';
 
 const NAV_ITEMS = [
@@ -88,6 +87,11 @@ export function AppSidebar() {
   const setActiveSegment = auth.setActiveSegment;
   const signOut = auth.signOut;
 
+  // Owner-only: member selector state
+  const members = (auth.members || []) as { id: string; fullName: string; email: string }[];
+  const selectedMemberId = auth.selectedMemberId as string | null;
+  const setSelectedMemberId = auth.setSelectedMemberId as (id: string | null) => void;
+
   const leadsCtx = useLeads() as any;
   const pipelineVal = leadsCtx.pipelineVal;
   const saving = leadsCtx.saving;
@@ -98,7 +102,11 @@ export function AppSidebar() {
     ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : (profile?.email?.[0]?.toUpperCase() ?? 'U');
 
-
+  // Derive display label for selected member
+  const selectedMember = selectedMemberId
+    ? members.find((m) => m.id === selectedMemberId)
+    : null;
+  const memberLabel = selectedMember ? selectedMember.fullName : 'All Members';
 
   return (
     <aside
@@ -120,7 +128,7 @@ export function AppSidebar() {
         </div>
         <div className="min-w-0">
           <p className="text-white text-sm font-display font-semibold leading-tight truncate">
-            Lead & Bid Manager
+            Lead &amp; Bid Manager
           </p>
           <p className="text-white/40 text-[11px] font-mono truncate">
             GeM · Govt · Corporate
@@ -128,8 +136,78 @@ export function AppSidebar() {
         </div>
       </div>
 
-      {/* ── Segment Switcher (if multiple) ───────────── */}
-      {assignedSegments.length > 1 && (
+      {/* ── Owner: Member Selector ────────────────────── */}
+      {isOwner && (
+        <div className="px-3 py-3 border-b border-white/8">
+          <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold mb-1.5 px-1">
+            Member
+          </p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full flex items-center justify-between gap-2 rounded-lg bg-white/8 border border-white/10 px-3 py-2 text-sm text-white/80 hover:bg-white/12 transition-colors">
+                <span className="flex items-center gap-2 min-w-0">
+                  <UserCircle2 className="h-3.5 w-3.5 text-[#00AEEF] shrink-0" />
+                  <span className="truncate">{memberLabel}</span>
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-white/40 shrink-0" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-56"
+              style={{ background: '#1A2B5E', border: '1px solid rgba(255,255,255,0.12)' }}
+            >
+              <DropdownMenuLabel className="text-white/50">Filter by Member</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-white/10" />
+
+              {/* All Members option */}
+              <DropdownMenuItem
+                onClick={() => setSelectedMemberId(null)}
+                className={cn(
+                  'text-white/80 focus:bg-white/10 focus:text-white cursor-pointer',
+                  !selectedMemberId && 'text-[#00AEEF] font-medium'
+                )}
+              >
+                <Users className="h-3.5 w-3.5 mr-2 shrink-0" />
+                All Members
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="bg-white/10" />
+
+              {members.length === 0 && (
+                <DropdownMenuItem disabled className="text-white/30 text-xs italic">
+                  No members found
+                </DropdownMenuItem>
+              )}
+              {members.map((m) => (
+                <DropdownMenuItem
+                  key={m.id}
+                  onClick={() => setSelectedMemberId(m.id)}
+                  className={cn(
+                    'text-white/80 focus:bg-white/10 focus:text-white cursor-pointer',
+                    selectedMemberId === m.id && 'text-[#00AEEF] font-medium'
+                  )}
+                >
+                  <UserCircle2 className="h-3.5 w-3.5 mr-2 shrink-0 opacity-60" />
+                  <span className="truncate">{m.fullName}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
+      {/* ── Member: Single segment pill ──────────────── */}
+      {!isOwner && assignedSegments.length === 1 && activeSegment && (
+        <div className="px-4 py-2 border-b border-white/8">
+          <div className="flex items-center gap-2 rounded-lg bg-[#00AEEF]/12 border border-[#00AEEF]/20 px-3 py-1.5">
+            <Building2 className="h-3 w-3 text-[#00AEEF]" />
+            <span className="text-[#00AEEF] text-xs font-mono">{activeSegment.name}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Member: Multi-segment switcher ───────────── */}
+      {!isOwner && assignedSegments.length > 1 && (
         <div className="px-3 py-3 border-b border-white/8">
           <p className="text-white/40 text-[10px] uppercase tracking-widest font-semibold mb-1.5 px-1">
             Segment
@@ -164,16 +242,6 @@ export function AppSidebar() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      )}
-
-      {/* ── Single segment pill ──────────────────────── */}
-      {assignedSegments.length === 1 && activeSegment && (
-        <div className="px-4 py-2 border-b border-white/8">
-          <div className="flex items-center gap-2 rounded-lg bg-[#00AEEF]/12 border border-[#00AEEF]/20 px-3 py-1.5">
-            <Building2 className="h-3 w-3 text-[#00AEEF]" />
-            <span className="text-[#00AEEF] text-xs font-mono">{activeSegment.name}</span>
-          </div>
         </div>
       )}
 

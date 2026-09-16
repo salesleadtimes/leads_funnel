@@ -29,6 +29,11 @@ export interface AuthContextType {
   allSegments: BusinessSegment[];
   activeSegment: BusinessSegment | null;
   setActiveSegment: (seg: BusinessSegment | null) => void;
+  /** Owner-only: list of all team members */
+  members: { id: string; fullName: string; email: string }[];
+  /** Owner-only: the currently selected member ID for dashboard filtering (null = All Members) */
+  selectedMemberId: string | null;
+  setSelectedMemberId: (id: string | null) => void;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
@@ -40,7 +45,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 /**
  * AuthProvider — wraps the whole app.
  * Provides: user, profile (role, full_name), assignedSegments, activeSegment,
- * allSegments, setActiveSegment, refreshProfile, signOut, loading.
+ * allSegments, setActiveSegment, members, selectedMemberId, setSelectedMemberId,
+ * refreshProfile, signOut, loading.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -51,6 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [allSegments, setAllSegments] = useState<BusinessSegment[]>([]);
   const [activeSegment, setActiveSegment] = useState<BusinessSegment | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Owner-only: list of team members and selected member for dashboard filter
+  const [members, setMembers] = useState<{ id: string; fullName: string; email: string }[]>([]);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   const fetchProfile = useCallback(
     async (userId: string, sessionUser: User | null = null) => {
@@ -120,6 +130,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (activeSegs.length > 0) {
               setActiveSegment((prev) => prev ?? activeSegs[0]);
             }
+
+            // 3. Owners: fetch team members list for dashboard member-filter
+            const { data: profilesData } = await supabase
+              .from('profiles')
+              .select('id, full_name, email, role, is_active')
+              .eq('is_active', true)
+              .order('full_name');
+
+            const memberList = ((profilesData || []) as any[]).map((p) => ({
+              id: p.id,
+              fullName: p.full_name || p.email?.split('@')[0] || 'Unknown',
+              email: p.email || '',
+            }));
+            setMembers(memberList);
           } else {
             // Members see only their assigned segments
             const { data: userSegs } = await supabase
@@ -134,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (mapped.length > 0) {
               setActiveSegment((prev) => prev ?? mapped[0]);
             }
+            setMembers([]);
           }
         }
       } catch (err) {
@@ -185,6 +210,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAssigned([]);
         setAllSegments([]);
         setActiveSegment(null);
+        setMembers([]);
+        setSelectedMemberId(null);
         setLoading(false);
       }
     });
@@ -217,6 +244,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         allSegments,
         activeSegment,
         setActiveSegment,
+        members,
+        selectedMemberId,
+        setSelectedMemberId,
         refreshProfile,
         signOut,
         loading,

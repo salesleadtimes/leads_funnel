@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { PlusCircle, Building2 } from 'lucide-react';
+import { PlusCircle, Building2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/context/AuthContext';
 import {
   fetchCategoriesBySegment,
@@ -22,39 +22,60 @@ interface NewLeadFormProps {
 
 export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
   const auth = useAuth() as any;
-  const activeSegment = auth.activeSegment as { id: string; name: string } | null;
+  const assignedSegments = (auth.assignedSegments || []) as { id: string; name: string }[];
   const profile = auth.profile as { full_name?: string; email?: string; id?: string } | null;
 
-
+  // Track selected segment in local state — drives all downstream dropdowns
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string>('');
 
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [sources, setSources] = useState<{ id: string; name: string }[]>([]);
   const [stages, setStages] = useState<{ id: string; name: string }[]>([]);
   const [sectors, setSectors] = useState<{ id: string; name: string }[]>([]);
   const [isGemBid, setIsGemBid] = useState(false);
-  const [loadingMeta, setLoadingMeta] = useState(true);
+  const [loadingMeta, setLoadingMeta] = useState(false);
+  const [loadingSectors, setLoadingSectors] = useState(true);
 
+  // Fetch sectors once on mount (they are not segment-scoped)
   useEffect(() => {
-    if (!activeSegment?.id) return;
+    fetchSectors()
+      .then((scts) => setSectors((scts as any) || []))
+      .catch(console.error)
+      .finally(() => setLoadingSectors(false));
+  }, []);
+
+  // Pre-select the first segment when assignedSegments loads
+  useEffect(() => {
+    if (assignedSegments.length > 0 && !selectedSegmentId) {
+      setSelectedSegmentId(assignedSegments[0].id);
+    }
+  }, [assignedSegments, selectedSegmentId]);
+
+  // Reload categories, sources, stages whenever the selected segment changes
+  useEffect(() => {
+    if (!selectedSegmentId) {
+      setCategories([]);
+      setSources([]);
+      setStages([]);
+      return;
+    }
     setLoadingMeta(true);
     Promise.all([
-      fetchCategoriesBySegment(activeSegment.id),
-      fetchSourcesBySegment(activeSegment.id),
-      fetchStagesBySegment(activeSegment.id),
-      fetchSectors(),
+      fetchCategoriesBySegment(selectedSegmentId),
+      fetchSourcesBySegment(selectedSegmentId),
+      fetchStagesBySegment(selectedSegmentId),
     ])
-      .then(([cats, srcs, stgs, scts]) => {
+      .then(([cats, srcs, stgs]) => {
         setCategories((cats as any) || []);
         setSources((srcs as any) || []);
         setStages((stgs as any) || []);
-        setSectors((scts as any) || []);
       })
-
       .catch(console.error)
       .finally(() => setLoadingMeta(false));
-  }, [activeSegment?.id]);
+  }, [selectedSegmentId]);
 
-  if (!activeSegment) {
+  // No segments assigned at all
+  if (assignedSegments.length === 0) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
@@ -70,7 +91,7 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground">Add New Opportunity</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Segment: <strong>{activeSegment.name}</strong> — Enter buyer and tender/RFQ details.
+          Select a segment, then enter buyer and tender/RFQ details.
         </p>
       </div>
 
@@ -79,19 +100,52 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
           <CardHeader>
             <CardTitle className="text-sm flex items-center gap-2">
               <Building2 className="h-4 w-4 text-primary" />
-              Buyer & Opportunity Details
+              Buyer &amp; Opportunity Details
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <input type="hidden" name="segmentId" value={activeSegment.id} />
+            {/* ── Segment selector (required, drives all other dropdowns) ── */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1.5 col-span-1">
+                <Label htmlFor="segmentId">
+                  Segment <span className="text-destructive">*</span>
+                </Label>
+                <select
+                  id="segmentId"
+                  name="segmentId"
+                  required
+                  value={selectedSegmentId}
+                  onChange={(e) => setSelectedSegmentId(e.target.value)}
+                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                >
+                  <option value="">— Select Segment —</option>
+                  {assignedSegments.map((seg) => (
+                    <option key={seg.id} value={seg.id}>
+                      {seg.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Loading indicator when segment master data is being fetched */}
+              {loadingMeta && (
+                <div className="col-span-2 flex items-end pb-2 gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Loading segment data…
+                </div>
+              )}
+            </div>
+
+            <Separator />
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="sectorId">Sector *</Label>
+                <Label htmlFor="sectorId">Sector <span className="text-destructive">*</span></Label>
                 <select
                   name="sectorId"
                   required
-                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                  disabled={loadingSectors}
+                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:opacity-50"
                 >
                   <option value="">— Select Sector —</option>
                   {sectors.map((s) => (
@@ -100,7 +154,7 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
                 </select>
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label>Organisation / Customer Name *</Label>
+                <Label>Organisation / Customer Name <span className="text-destructive">*</span></Label>
                 <Input name="orgName" required placeholder="e.g. District Magistrate Office, Muzaffarnagar" />
               </div>
 
@@ -109,7 +163,7 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
                 <Input name="deptIndustry" placeholder="e.g. Revenue Dept / Education" />
               </div>
               <div className="space-y-1.5">
-                <Label>Contact Person & Role</Label>
+                <Label>Contact Person &amp; Role</Label>
                 <Input name="contactPerson" placeholder="e.g. R.K. Sharma (Purchase Officer)" />
               </div>
               <div className="space-y-1.5">
@@ -136,11 +190,11 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5">
-                <Label>Product Category *</Label>
+                <Label>Product Category <span className="text-destructive">*</span></Label>
                 <select
                   name="categoryId"
                   required
-                  disabled={loadingMeta}
+                  disabled={loadingMeta || !selectedSegmentId}
                   className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:opacity-50"
                 >
                   <option value="">— Select Category —</option>
@@ -159,7 +213,7 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
                 <Input name="qty" type="number" min="1" defaultValue="1" />
               </div>
               <div className="space-y-1.5">
-                <Label>Estimated Deal Value (₹) *</Label>
+                <Label>Estimated Deal Value (₹) <span className="text-destructive">*</span></Label>
                 <Input name="estValue" type="number" step="1" min="0" required placeholder="540000" />
               </div>
 
@@ -167,7 +221,7 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
                 <Label>Lead Source / Channel</Label>
                 <select
                   name="sourceId"
-                  disabled={loadingMeta}
+                  disabled={loadingMeta || !selectedSegmentId}
                   className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:opacity-50"
                 >
                   <option value="">— Select Source —</option>
@@ -181,7 +235,7 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
                 <Label>Pipeline Stage</Label>
                 <select
                   name="stageId"
-                  disabled={loadingMeta}
+                  disabled={loadingMeta || !selectedSegmentId}
                   className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:opacity-50"
                 >
                   <option value="">— Select Stage —</option>
@@ -231,7 +285,7 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
                   <Input name="tenderRef" placeholder="MZN/2026/IT/017" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Bid End Date & Time</Label>
+                  <Label>Bid End Date &amp; Time</Label>
                   <Input name="bidEndDate" type="datetime-local" />
                 </div>
                 <div className="space-y-1.5">
@@ -267,7 +321,13 @@ export function NewLeadForm({ onSubmit }: NewLeadFormProps) {
             </div>
 
             <div className="flex justify-end pt-2">
-              <Button type="submit" variant="hp" size="lg" disabled={loadingMeta} className="gap-2">
+              <Button
+                type="submit"
+                variant="hp"
+                size="lg"
+                disabled={loadingMeta || !selectedSegmentId}
+                className="gap-2"
+              >
                 <PlusCircle className="h-4 w-4" />
                 Save Lead
               </Button>

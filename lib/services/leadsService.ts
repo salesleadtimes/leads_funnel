@@ -93,6 +93,7 @@ export function mapRowToLead(row: any): LeadModel | null {
 
 export interface GetLeadsOptions {
   segmentId?: string | null;
+  assignedTo?: string | null;
   includeGemBids?: boolean;
 }
 
@@ -102,6 +103,7 @@ export interface GetLeadsOptions {
  */
 export async function getLeads({
   segmentId = null,
+  assignedTo = null,
   includeGemBids = true,
 }: GetLeadsOptions = {}): Promise<LeadModel[]> {
   let query = supabase
@@ -122,6 +124,9 @@ export async function getLeads({
   if (segmentId) {
     query = query.eq('segment_id', segmentId);
   }
+  if (assignedTo) {
+    query = query.eq('assigned_to', assignedTo);
+  }
 
   const { data, error } = await query;
   if (error) {
@@ -137,6 +142,7 @@ export async function getLeads({
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
     if (segmentId) fallbackQuery = fallbackQuery.eq('segment_id', segmentId);
+    if (assignedTo) fallbackQuery = fallbackQuery.eq('assigned_to', assignedTo);
     const res = await fallbackQuery;
     if (res.error) throw error;
     return (res.data || []).map(mapRowToLead).filter(Boolean) as LeadModel[];

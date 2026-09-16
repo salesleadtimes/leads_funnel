@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { StageBadge } from './StageBadge';
 import { History, Building2, Trash2, Shield, Eye } from 'lucide-react';
 import { useAuth } from '@/lib/context/AuthContext';
+
 import {
   fetchCategoriesBySegment,
   fetchSourcesBySegment,
@@ -81,8 +82,9 @@ export function LeadFormDialog({
 }: LeadFormDialogProps) {
   const auth = useAuth() as any;
   const isOwner = Boolean(auth.isOwner);
-  const activeSegment = auth.activeSegment as { id: string; name: string } | null;
+  const allSegments = (auth.allSegments || []) as { id: string; name: string }[];
   const [internalOpen, setInternalOpen] = useState(false);
+
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : internalOpen;
 
@@ -94,7 +96,8 @@ export function LeadFormDialog({
   const [historyTab, setHistoryTab] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const segId = lead?.segmentId || activeSegment?.id;
+  const segId = lead?.segmentId || '';
+
 
   // Authorization: Owner or creator
   const canEdit = isOwner || (lead?.createdBy && auth.user?.id && lead.createdBy === auth.user.id);
@@ -248,6 +251,19 @@ export function LeadFormDialog({
                   </span>
                 </div>
               )}
+
+              {/* Segment (read-only — changing segment requires re-mapping category/source/stage) */}
+              <div className="space-y-1.5">
+                <Label>Segment</Label>
+                <div className="flex h-9 w-full items-center rounded-lg border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground gap-2">
+                  <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span className="truncate">
+                    {allSegments.find((s) => s.id === lead.segmentId)?.name ||
+                      lead.segmentId ||
+                      '—'}
+                  </span>
+                </div>
+              </div>
 
               {/* Row 1 */}
               <div className="space-y-1.5">
